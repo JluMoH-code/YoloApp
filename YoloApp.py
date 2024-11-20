@@ -76,7 +76,7 @@ class YOLOApp(QMainWindow):
         # Обработка с использованием YOLO
         if self.model:
             results = self.model(img)  # Обработка уменьшенного изображения
-            processed_img = Utilities.draw_boxes_with_labels(img, results)  
+            processed_img = Utilities.draw_results(img, results, self.model.names)  
             resized_img = Utilities.resize_frame_to_fit(processed_img)
             self.display_image(resized_img, self.processed_label)
 
@@ -128,7 +128,7 @@ class VideoThread(QThread):
             # Обработка кадра с использованием YOLO
             if self.model:
                 results = self.model(frame)
-                processed_frame = Utilities.draw_boxes_with_labels(frame, results)
+                processed_frame = Utilities.draw_results(frame, results, self.model.names)
                 resized_frame = Utilities.resize_frame_to_fit(processed_frame)
                 self.processed_frame.emit(resized_frame)
 

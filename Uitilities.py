@@ -7,15 +7,15 @@ class Utilities:
         image_with_results = image.copy()
         for result in results:
             for box in result.boxes:
-                Utilities.draw_boxes_with_labels(image, box, names)
+                image_with_results = Utilities.draw_boxes_with_labels(image, box, names)
                 
         return image_with_results
 
     @staticmethod
-    def draw_boxes_with_labels(image, box, names):
-        image = Utilities.draw_box(image, box)
-        label = Utilities.get_label(box, names)
-        image = Utilities.draw_label(image, box, label)
+    def draw_boxes_with_labels(image, boxes, names):
+        image = Utilities.draw_box(image, boxes)
+        label = Utilities.get_label(boxes, names)
+        image = Utilities.draw_label(image, boxes, label)
         return image
 
     @staticmethod
