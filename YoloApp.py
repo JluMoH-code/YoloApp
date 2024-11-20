@@ -1,11 +1,11 @@
 import sys
 import cv2
-import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QMessageBox
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QThread, pyqtSignal
 from ultralytics import YOLO
 import numpy as np
+from Uitilities import Utilities
 
 class YOLOApp(QMainWindow):
     def __init__(self):
@@ -76,35 +76,13 @@ class YOLOApp(QMainWindow):
         # Обработка с использованием YOLO
         if self.model:
             results = self.model(img)  # Обработка уменьшенного изображения
-            processed_img = self.draw_boxes(img.copy(), results)  
-            resized_img = self.resize_image_to_fit(processed_img)
+            processed_img = Utilities.draw_boxes_with_labels(img, results)  
+            resized_img = Utilities.resize_frame_to_fit(processed_img)
             self.display_image(resized_img, self.processed_label)
 
         # Загрузка и отображение исходного изображения
-        resized_img = self.resize_image_to_fit(img)
+        resized_img = Utilities.resize_frame_to_fit(img)
         self.display_image(resized_img, self.original_label)        
-
-    def resize_image_to_fit(self, img, max_width=640, max_height=480):
-        # Масштабирование изображения, чтобы оно помещалось
-        h, w = img.shape[:2]
-        scale = min(max_width / w, max_height / h)
-        new_size = (int(w * scale), int(h * scale))
-        return cv2.resize(img, new_size, interpolation=cv2.INTER_AREA)
-
-    def draw_boxes(self, img, results):
-        # Функция для рисования рамок на изображении
-        for result in results:
-            for box in result.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])  # Координаты рамок
-                conf = box.conf[0]  # Уверенность предсказания
-                cls = int(box.cls[0])  # Класс обнаруженного объекта
-
-                # Рисуем рамки и метки
-                label = f"{self.model.names[cls]} {conf:.2f}"
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        return img
-
 
     def start_video_processing(self, file_path):
         # Запуск видео в отдельном потоке
@@ -122,17 +100,13 @@ class YOLOApp(QMainWindow):
         self.stop_button.setEnabled(False)  # Деактивируем кнопку остановки
 
     def on_video_finished(self):
-        # Сброс отображения по завершению видео
         self.original_label.clear()
         self.processed_label.clear()
         self.stop_button.setEnabled(False)
 
     def display_image(self, img, label):
-        rgb_image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
-        bytes_per_line = ch * w
-        qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        label.setPixmap(QPixmap.fromImage(qt_image))
+        qimage = Utilities.cv_image_to_qimage(img)
+        label.setPixmap(QPixmap.fromImage(qimage))
 
 class VideoThread(QThread):
     original_frame = pyqtSignal(np.ndarray)
@@ -154,12 +128,12 @@ class VideoThread(QThread):
             # Обработка кадра с использованием YOLO
             if self.model:
                 results = self.model(frame)
-                processed_frame = self.draw_boxes(frame.copy(), results)
-                resized_frame = self.resize_frame_to_fit(processed_frame)
+                processed_frame = Utilities.draw_boxes_with_labels(frame, results)
+                resized_frame = Utilities.resize_frame_to_fit(processed_frame)
                 self.processed_frame.emit(resized_frame)
 
             # Уменьшаем размер кадра для показа
-            resized_frame = self.resize_frame_to_fit(frame)
+            resized_frame = Utilities.resize_frame_to_fit(frame)
             self.original_frame.emit(resized_frame)
 
             QThread.msleep(30)  # задержка для обновления кадров
@@ -169,28 +143,7 @@ class VideoThread(QThread):
     def stop(self):
         self.running = False
         self.wait()
-
-    def resize_frame_to_fit(self, frame, max_width=640, max_height=480):
-        # Масштабирование кадра для показа в окне
-        h, w = frame.shape[:2]
-        scale = min(max_width / w, max_height / h)
-        new_size = (int(w * scale), int(h * scale))
-        return cv2.resize(frame, new_size, interpolation=cv2.INTER_AREA)
-
-    def draw_boxes(self, img, results):
-        # Функция для рисования рамок на кадре
-        for result in results:
-            for box in result.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                conf = box.conf[0]
-                cls = int(box.cls[0])
-
-                # Рисуем рамки и метки
-                label = f"{self.model.names[cls]} {conf:.2f}"
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        return img
-
+   
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     mainWin = YOLOApp()
